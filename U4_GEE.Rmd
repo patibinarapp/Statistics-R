@@ -1,0 +1,92 @@
+---
+title: "GEE"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Estudio sobre el uso de monitores para reducir el consumo de gas, agua o luz en viviendas particulares habitadas.
+
+Una empresa constructora, está interesada en probar el efecto de nuevos monitores domésticos, que permiten a los habitantes de los hogares tener mayor conciencia en el consumo de agua, luz y gas. La empresa supone que el simple hecho de que los habitantes de los hogares conozcan sus niveles de consumo, es suficiente para lograr una reducción significativa.
+
+El experimento consistió en asignar de manera aleatoria cuatro tratamientos para reducir el consumo de
+agua, luz y gas con los siguientes tratamientos:
+1. Grupo control (sin modificación)
+2. Sistemas ahorradores
+3. Monitor de consumo
+4. Sistemas ahorradores y monitor de consumo
+
+El interés del estudio se centra en conocer si existe una reducción significativa en el consumo de agua,
+luz y gas derivada de los tratamientos durante el periodo de seguimiento. Nos interasa encontrar evidencia del impacto de las diferentes estrategias en la campaña para reducir el consumo de los servicios.
+
+El modelo propuesto es:
+
+```{r}
+
+y= a + b1x1 + b2x2 + b3x3 +b4x4
+
+y: ultimo registro de consumo (variable respuesta)
+a: intersecto
+b1: coeficiente relacionado con la edad
+x1: edad(variable explicativa)
+b2: coeficiente relacionado con la gravedad
+x2: gravedad (variable explicativa)
+b3: coeficiente relacionado con ansiedad
+x3: ansiedad (variable explicativa)
+b4: coeficiente relacionado con tipo de paciente
+x4: paciete mÃ©dico o quirurjico
+
+```
+
+
+```{r cars}
+
+library(readxl)
+consumo <- read_excel("C:/Users/mayor/Documents/EMED CIMAT/Modulo 8 Modelos longitudinales/Base de datos-20240613/casas_L.xlsx")
+consumo2<-read_excel("C:/Users/mayor/Documents/EMED CIMAT/Modulo 8 Modelos longitudinales/Base de datos-20240613/Casas_Long.xlsx")
+consumo$folio<-factor(consumo$folio)
+consumo$muestreo<-factor(consumo$muestreo)
+consumo_A <- consumo2 %>% pivot_wider(id_cols=c(folio,trat,tv),
+names_from=muestreo, values_from=c(agua, luz, gas))
+library(tidyr)
+library(lattice)
+library(gplots)
+library(emmeans)
+
+
+shapiro.test(consumo2$agua)
+aguaL <- subset(consumo_A, select=c(folio, agua_2, agua_3, agua_4, agua_5, agua_6,trat,tv)) %>%
+drop_na() %>% pivot_longer(cols=starts_with("agua_"),
+names_to="mes", values_to="agua",
+names_prefix="agua_")
+
+
+luzL <- subset(consumo_A, select=c(folio, luz_2, luz_3, luz_4, luz_5, luz_6,trat,tv)) %>%
+drop_na() %>%pivot_longer(cols=starts_with("luz_"),
+names_to="mes", values_to="luz",
+names_prefix="luz_")
+
+gasL <- subset(consumo_A, select=c(folio,gas_1, gas_2, gas_3, gas_4, gas_5, gas_6,trat,tv)) %>%
+drop_na() %>%pivot_longer(cols=starts_with("gas_"),
+names_to="mes", values_to="gas",
+names_prefix="gas_")
+
+plotmeans(gas ~ mes, data = gasL, frame = FALSE)
+plotmeans(luz ~ mes, data = luzL, frame = FALSE)
+
+plotmeans(agua ~mes, data = aguaL, frame = FALSE)
+plotmeans(agua ~trat, data = aguaL, frame = FALSE)
+
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.

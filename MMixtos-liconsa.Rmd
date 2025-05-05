@@ -1,0 +1,361 @@
+---
+title: "Modelos Mixtos"
+author: "I. Mendez"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+# Leche liconsa
+
+
+El Instituto Nacional de Salud Pública llevó a cabo un estudio con diseño experimental para estudiar el efecto de dos fórmulas de leche Liconsa en los niveles de hemoglobina en mg/dL (hb) en la sangre de los niños en el estudio. Las fórmulas probadas son: 
+
+	Leche Liconsa (fórmula original, tx=0)
+	
+	Leche Te Nutre (fórmula fortificada, tx=1)
+	
+El estudio se llevó a cabo en 12 lecherías y se asignó el tratamiento experimental al azar a 7 lecherías. Se seleccionó de manera aleatoria a 680 niños menores de 24 meses de edad al inicio y se les dio seguimiento por 2 años.
+
+. Se realizaron tres mediciones en el tiempo: al inicio, al año y a los 2 años. 
+
+Lectura de datos:
+
+```{r lic, warning=FALSE}
+
+library(readxl)
+
+setwd("C:/Users/mayor/Documents/EMED CIMAT/Modulo 8 Modelos longitudinales")
+liconsa <- read_excel("Liconsa_long.xlsx")
+
+liconsa$tx <-factor(liconsa$tx, levels = c(0,1), labels = c(" Liconsa", " Te Nutre"))
+liconsa$t2 <-factor(liconsa$t, levels = c(0,1,2), labels = c(" Inicio", " 12m", " 24m"))
+liconsa$num_lec <-factor(liconsa$num_lec)
+liconsa$folio <-factor(liconsa$folio)
+
+```
+
+
+## Modelo de intercepto aleatorio
+
+El modelo de intercepto aleatorio, permite estudiar el efecto de tratamiento con leche fortificada, considerando el cambio en el tiempo y ajustando por la edad del sujeto. El modelo considera como efecto aleatorio al sujeto, lo que permite separar la variabilidad de las mediciones en dos componentes, uno que es sujeto de estudio y el otro que es la propia medición dentro de sujeto como error aleatorio.
+
+La salida del modelo es:
+
+```{r mod1, message=FALSE, warning=FALSE}
+
+library(lme4)
+library(lmerTest)
+library(sjstats)
+
+mod1 <- lmer(hbadj~t*tx+(1|folio), data=liconsa)
+summary(mod1)
+
+```
+
+El modelo ajustado muestra que la media de hemoglobina inicial en el grupo control es β_0=12.6 g/dL, con incremento promedio anual de β_1=0.5 g/dL de hemoglobina. La diferencia entre grupo de tratamiento respecto al control en la medición inicial es β_2=-0.054, que no es significativa (p=0.583). El efecto del tratamiento (leche fortificada), representado por la interacción del tratamiento en el tiempo, muestra un incremento anual adicional de β_3=0.252 g/dL.
+
+
+```{r}
+performance::icc(mod1)
+```
+
+
+El coeficiente intraclase ajustado, representa una medida de la proporción de variabilidad de las mediciones que es atribuible llos individuos, la cual es del 35.5%, el resto es variabilidad entre mediciones del mismo individuo. Este se obtiene a partir de la tabla de efectos aleatorios, donde la varianza debida a los individuos (folio) , que es 0.5695 se divide entre la suma de ambas varianzas (0.5695+1.0357), es decir que es la proporción de la varianza aleatoria debida a los individuos.
+
+
+### Modelo de intercepto aleatorio con ajuste por edad
+
+En niños menores de un año, la edad es factor concomitante, el cual implica un incremento natural en la concentración de hemoglobina conforme crecen, por lo tanto se considera necesario incluir la edad como factor de ajuste. El modelo con ajuste por edad es:
+
+```{r, message=FALSE, warning=FALSE}
+
+mod2 <- lmer(hbadj~t*tx+edad+(1|folio), data=liconsa)
+summary(mod2)
+
+```
+
+El coeficiente para el efecto lineal del tiempo es positivo y significativo, lo que nos indica que para el grupo control (que recibió leche Liconsa) se observa un incremento promedio de 0.502 mg/dL en el primer año, duplicándose a 1.004 mg/dL en el segundo (efecto lineal). El coeficiente del efecto principal del tratamiento con leche fortificada (Te Nutre) al inicio, representa una diferencia de b(t)=-0.0645 mg/dL con respecto al grupo control al inicio, que es no significativa (p=0.595). La interacción representa el incremento adicional observado en el grupo de tratamiento con leche fortificada al final, el cual es de b(t:tx) = 0.2521 mg/dL más al primer año que el incremento observado para el grupo Liconsa, representado solo por el efecto del tiempo; mientras que para el segundo año, el incremento adicional para el grupo de tratamiento con leche fortificada se duplica a 0.5042 mg/dL más que el grupo de Liconsa (p<0.001). La edad inicial de los niños, que esta considerada como variable de corrección, muestra un efecto positivo significativo, lo que significa que por cada año de edad, los niños tienen un incremento promedio de b(edad)=0.0321 significativo (p<0.001) en la concentración de hemoglobina en sangre. El ajuste por edad es importante porque su efecto podría confundirse con el efecto en en tiempo al crecer en edad los niños observados.
+
+El coeficiente de correlación intraclase es:
+
+```{r, message=FALSE, warning=FALSE}
+
+performance::icc(mod2)
+
+```
+
+La correlación intraclase es 𝜌=0.344. Es menor dado que el ajuste por edad capta parte de la variación observada entre sujetos.
+
+Comparamos los modelos de intercepto aleatorio con y sin la inclusión de la edad como variable de corrección, ambos con efecto lineal del tiempo.
+
+```{r, message=FALSE}
+
+library(lmtest)
+aic<-AIC(mod1, mod2)
+bic<-BIC(mod1, mod2)
+ic <- cbind(aic, subset(bic,select=BIC))
+ic
+lrtest(mod1, mod2)
+
+```
+
+Como podemos ver, la inclusión de la edad como variable de corrección contribuye significativamente a mejorar el ajuste del modelo.
+
+
+## Modelo de intercepto aleatorio (efecto discreto del tiempo) 
+
+El modelo de intercepto aleatorio con la variable de tiempo como factor, nos dará dos coeficientes, una para la diferencia promedio del primer año y otro para la diferencia promedio en el segundo año, ambas con respecto al inicio del estudio. Este modelo es:
+
+```{r}
+
+mod3 <- lmer(hbadj~t2*tx+(1|folio), data=liconsa)
+summary(mod3)
+
+```
+El intercepto representa el promedio de hemoglobina inicial en el grupo control es 12.54 g/dL. El grupo de tratamiento NO muestra una diferencia significativa b(tx)=−0.045 g/dL con respecto al grupo control al inicio p=0.665. En el grupo control, el primer año hay incremento de b(t=1)=0.72 g/dL y a los dos años es de b(t=2)=1.005 g/dL. El efecto del tratamiento en el primer año es un incremento adicional de b(t=1:tx)=0.229 g/dL respecto al grupo control, poco significativo p=0.0535. A los dos años, el incremento promedio adicional del tratamiento es de b(t=2:tx)=0.5 g/dL mayor al grupo control.
+
+
+El modelo de intercepto aleatorio con la variable de tiempo como factor incluyendo el ajuste por edad:
+
+```{r}
+
+mod4 <- lmer(hbadj~t2*tx+edad+(1|folio), data=liconsa)
+summary(mod4)
+
+```
+
+
+Comparamos los modelos de intercepto aleatorio con el tiempo como efecto lineal vs como factor, ambos con la inclusión de la edad como variable de corrección
+
+```{r, message=FALSE}
+
+library(lmtest)
+aic<-AIC(mod2, mod4)
+bic<-BIC(mod2, mod4)
+ic <- cbind(aic, subset(bic,select=BIC))
+ic
+lrtest(mod2, mod4)
+
+```
+
+Se observa que el uso discreto del tiempo mejora el ajuste del modelo, este es un resultado importante, porque los términos discretos permiten un ajuste que no implica forzosamente una trayectoria lineal.
+
+
+Comparamos los modelos de intercepto aleatorio con el tiempo como factor y con la inclusión de la edad como variable de corrección
+
+```{r, message=FALSE}
+
+library(lmtest)
+aic<-AIC(mod3, mod4)
+bic<-BIC(mod3, mod4)
+ic <- cbind(aic, subset(bic,select=BIC))
+ic
+lrtest(mod3, mod4)
+
+```
+
+La inclusión de la edad mejora los modelos, tanto con el efecto lineal de tiempo como con el efecto discreto.  
+
+
+La tabla del análisis de varianza de los efectos fijos es:
+
+```{r mod1test}
+
+anova(mod4)
+
+```
+
+Como podemos observar, todos los términos fijos son significativos en el modelo.
+
+
+## Modelo de coeficientes aleatorios (independientes)
+
+Otra alternativa para el modelo, es considerar que, además de la variabilidad debida a sujeto (intercepto aleatorio), es posible que exista una aleatoriedad en la pendiente del efecto del tratamiento asociado al sujeto. Esto se puede plasmar en el modelo, al considerar que tanto el intercepto como los coeficientes del tratamiento son aleatorios.
+
+El modelo de coeficientes aleatorios independientes es:
+
+```{r, message=FALSE, warning=FALSE}
+
+mod5 <- lmer(hbadj~t2*tx+edad+(t||folio), data=liconsa)
+summary(mod5)
+
+```
+
+Nóte, que los coeficientes de los efectos fijos, incluido el efecto de tratamiento, son  idénticos a los observados en el modelo de intercepto aleatorio, es decir que las conclusiones son las mismas. Lo diferente aquí es que, en la tabla de efectos aleatorios, la variabilidad de las mediciones tiene tres componentes, la varianza de sujeto o individuo, la varianza del coeficiente del tratamiento (tx) también relativa al individuo y la varianza residual o de las mediciones en cada sujeto.
+
+El coeficiente de correlación intraclase es:
+
+```{r, message=FALSE, warning=FALSE}
+
+performance::icc(mod5)
+
+```
+
+Note que la varianza debida a sujeto (ICC) es el 34.9% de la varianza total, prácticamente igual a la del modelo de intercepto aleatorio, pero aún mas importante el hecho de que la proporción de la varianza debida al efecto del tratamiento (pendiente aleatoria) es muy pequeña, por lo que se considera preferible el de intercepto aleatorio.
+
+La prueba de razón de verosimilitud para comparar el modelo de intercepto aleatorio con el de coeficientes aleatorios, ambos con ajuste por edad es:
+
+```{r, message=FALSE}
+
+library(lmtest)
+aic<-AIC(mod4, mod5)
+bic<-BIC(mod4, mod5)
+ic <- cbind(aic, subset(bic,select=BIC))
+ic
+lrtest(mod4, mod5)
+
+```
+
+Con lo cual se concluye que el modelo de coeficientes aleatorios no aporta mejoras al ajuste.
+
+
+## Modelo de coeficientes aleatorios con correlación no estructurada
+
+De manera natural, se espera que en sujetos que inician con un nivel de hemoglobina más bajo respondan de manera diferente al tratamiento, comparado con los que inician con un nivel más alto, esto se manifiesta como una correlación fuerte entre los interceptos aleatorios y los coeficientes aleatorios correspondientes a cada sujeto. Se presenta el modelo de coeficientes aleatorios con correlación no estructurada, es:
+
+```{r}
+
+mod6 <- lmer(hbadj~t2*tx+edad+(t|folio), data=liconsa)
+summary(mod6)
+
+```
+
+Los coeficientes de los efectos fijos, incluido el efecto de tratamiento, son  idénticos a los observados en el modelo de intercepto aleatorio, es decir que las conclusiones son las mismas. Lo diferente aquí es que, en la tabla de efectos aleatorios, la variabilidad de las mediciones tiene tres componentes, la varianza de sujeto o individuo, la varianza del coeficiente del tratamiento (tx) también relativa al individuo y la varianza residual o de las mediciones en cada sujeto. 
+
+La prueba de razón de verosimilitud para comparar el modelo de intercepto aleatorio con el de coeficientes aleatorios con covarianza no estructurada, ambos con ajuste por edad es:
+
+
+```{r, message=FALSE}
+
+library(lmtest)
+aic<-AIC(mod4, mod6)
+bic<-BIC(mod4, mod6)
+ic <- cbind(aic, subset(bic,select=BIC))
+ic
+lrtest(mod4, mod6)
+
+```
+
+No existe diferencia significativa entre el modelo de intercepto aleatorio con el de coeficientes aleatorios con covarianza no estructurada.
+
+La prueba de razón de verosimilitud para comparar el modelo de coeficientes aleatorios independientes con el de coeficientes aleatorios con covarianza no estructurada, ambos con ajuste por edad es:
+
+
+```{r, message=FALSE}
+
+library(lmtest)
+aic<-AIC(mod5, mod6)
+bic<-BIC(mod5, mod6)
+ic <- cbind(aic, subset(bic,select=BIC))
+ic
+lrtest(mod5, mod6)
+
+```
+
+
+El modelo de coeficientes aleatorios con covarianza no estructurada tampoco implica una ventaja. Con lo que se concluye que el modelo de intercepto aleatorio parece ser el mejor modelo.
+
+
+## Modelo de intercepto aleatorio con tres niveles jerárquicos
+
+Dado que el diseño del estudio es un ensayo clínico aleatorizado y por conglomerados, es posible considerar, además de la variabilidad debida a sujeto (intercepto aleatorio), el efecto aleatorio de la lechería como conglomerado de sujetos. El modelo jerárquico con tres niveles es:
+
+```{r, warning=FALSE}
+
+mod7 <- lmer(hbadj~t2*tx+edad+(1|num_lec/folio), data=liconsa)
+summary(mod7)
+
+
+```
+
+Aunque la interpretación de los efectos fijos del modelo son casi idénticos al modelo de intercepto aleatorio, es importante considerar que el efecto de sujeto ahora esta separado en dos partes, una que tiene una varianza de 0.19, la cual es atribuible al efecto de la lechería (conglomerado de sujetos); y otra parte que es la varianza propiamente debida al sujeto, que muestra una varianza de 0.39. Si sumamos ambas varianzas, veremos que es idéntica a la varianza de sujeto cuando se excluyó la lechería en el modelo de intercepto aleatorio. Por esto, el modelo que considera los dos niveles jerárquicos resulta prácticamente igual al modelo de intercepto aleatorio.
+
+
+```{r, message=FALSE}
+
+performance::icc(mod7)
+
+```
+Como vemos, el coeficiente de correlación intraclase ajustado es casi idéntico al observado para el modelo de intercepto aleatorio con tres niveles jerárquicos.
+
+Comparamos el modelo de coeficientes aleatorios independientes con el de tres niveles jerárquicos, ambos con tiempo como factor y con la inclusión de la edad como variable de corrección
+
+```{r, message=FALSE}
+
+library(lmtest)
+aic<-AIC(mod6, mod7)
+bic<-BIC(mod6, mod7)
+ic <- cbind(aic, subset(bic,select=BIC))
+ic
+lrtest(mod6 , mod7)
+
+```
+
+Consideramos que este último es el mejor modelo, por tener el mejor ajuste significativo.
+
+Procedemos al análisis integral.
+
+Estimamos los efectos del modelo:
+
+```{r warning=FALSE}
+
+library(effects)
+library(car)
+library(carData)
+allEffects(mod7) 
+
+```
+
+
+El promedio de hemoglobina en sangre según la edad, muestra que a los 11 meses, se tiene un promedio estimado de 12.9 mg/dL, mientras que a 31 meses, el promedio llega a 13.5 mg/dL.
+
+Con respecto al efecto del tratamiento en el tiempo, podemos ver que al inicio, los promedios para ambos grupos son casi idénticos, donde el grupo Liconsa concentra una décima más; mientras que a los 12 meses de observación, aunque siguen casi iguales, hay un cambio de posición, siendo el grupo de Te Nutre el que concentra una décima más; finalmente, a los 24 meses de observación, ya se observa una mayor diferencia en el grupo de leche fortificada Te Nutre.
+
+Para identificar si dichas diferencias son significativas, se aplica la prueba de comparaciones múltiples de Tukey para la interacción. Los resultados son:
+
+
+```{r tukey1}
+
+library(emmeans)
+emm = emmeans(mod7, ~ tx * t2)
+pairs(emm)
+
+```
+
+Los promedios de hemoglobina no son diferentes al inicio (p=0.999). Al año se incrementa significativamente con Te Nutre (p<0.001) y Liconsa (p<0.001), los cuales no son diferentes entre si (0.893). Te Nutre en el primer año mestra promedio casi igual a Liconsa a los 2 años (p=1). A los 2 años Te Nutre muestra mayor promedio que el resto (p<0.001 en todos los casos).
+
+
+Estas comparaciones también se pueden representar gráficamente:
+
+```{r gtukey1}
+
+plot(emm, comparisons = FALSE)
+pwpp(emm)
+
+```
+Otra representación gráfica del efecto de interacción del tiempo y el tratamiento, es:
+
+```{r plot}
+
+library(interactions)
+cat_plot(mod5, pred = t2, modx = tx, geom = "line", x.label="Tiempo de observación", y.label="Hemoglobina en sangre")
+
+```
+
+Es claro que existe un efecto a largo plazo en la leche fortificada, mostrando un incremento significativo de la concentración promedio de hemoglobina a los 24 meses del tratamiento, con respecto a la leche tradicional Liconsa.
+
+Respecto al efecto de la edad, su representación gráfica es:
+
+```{r}
+
+plot(effect("edad",mod7), main="Efecto de la edad", ylab="Hemoglobina en sangre", xlab="Edad en meses")
+
+```
+
+Nóte que a mayor edad mayor concentración de hemoglobina en sangre, como ya se describió anteriormente.
+
+
