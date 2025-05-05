@@ -1,0 +1,219 @@
+---
+title: "Ana_Mayoral_Unidad_4_Act_1"
+author: "Ana P. Mayoral"
+date: '2023-11-27'
+output:
+  word_document: default
+  pdf_document: default
+---
+
+La base de datos contiene informacion sobre los servicios y bienes que a juicio del equipo consideran relevantes para medir el bienestar de los hogares en las 32 entidades federativas. Los datos reflejan el porcentaje de hogares en cada entidad federativa que cuenta con los siguientes servicios y bienes:
+
+1. Internet 
+2. Televisión 
+3. Servicio de TV de paga 
+4. Servicio de Telefonía 
+5. Radio 11. Aire acondicionado
+6. Automóvil
+7. Lavadora
+8. Estufa de gas o eléctrica
+9. Refrigerador
+10. Horno de microondas
+
+###Hagamos un analisis exploratorio de los datos para conocer su comportamiento:
+```{r}
+library(readxl)
+library(ggplot2)
+library(dplyr)
+Hogar<-read_excel("C:/Users/Dicssa/Documents/EMED CIMAT/Modulo 4 Metodos multvariados/Hogares_equipo.xlsx")
+data_hogares<-as.data.frame(Hogar)
+colMeans(data_hogares[,2:12])
+
+```
+
+Podemos observar que en cuestion cominicación en promedio en todo el pais el 92.5% de los hogares cuentan con Television abiert, seguido por el servicio de telefonio 89.7% y solo un 47.9% con servicio de internet. Si nos enfocamos en servicios del hogar, un 89.1% cuenta con estufa de gas o electrica mientras que solo un 29.3% cuenta con un automovil.
+
+```{r}
+servicios<-names(data_hogares[,-1])
+maxi<-max.col(data_hogares[,2:12])
+mini<-c()
+for (i in 1:32){
+  mini[i]<-which.min(data_hogares[i,2:12])
+}
+data_hogares<-data_hogares%>%mutate(mayor_servicio=servicios[maxi],menor_servicio=servicios[mini])
+data_hogares[,c(1,13,14)]
+```
+
+###¿Cuáles son los tres servicios/bienes que presentan una mayor dispersión entre los valores reportados por los Estados?
+
+Aire acondicionado
+Internet
+Horno de microondas
+
+```{r}
+# Matriz de dispersión con histograma de la variable en la diagonal
+panel.hist <- function(x, ...)
+{
+  usr <- par("usr"); on.exit(par(usr))
+  par(usr = c(usr[1:2], 0, 1.5) )
+  h <- hist(x, plot = FALSE)
+  breaks <- h$breaks; nB <- length(breaks)
+  y <- h$counts; y <- y/max(y)
+  rect(breaks[-nB], 0, breaks[-1], y, col="goldenrod1", ...)
+}
+
+
+# Matriz de dispersión con valores de correlación.
+panel.cor <- function(x, y, digits=2, prefix="", cex.cor, ...)
+{
+  usr <- par("usr"); on.exit(par(usr))
+  par(usr = c(0, 1, 0, 1))
+  r <- abs(cor(x, y))
+  txt <- format(c(r, 0.123456789), digits=digits)[1]
+  txt <- paste(prefix, txt, sep="")
+  if(missing(cex.cor)) cex.cor <- 1/strwidth(txt)
+  text(0.5, 0.5, txt, cex = cex.cor * r)
+}
+data_hogares1<-as.matrix(data_hogares)
+par(fig=c(0,1,0,1))
+pairs(data_hogares[,2:12], lower.panel=panel.smooth, upper.panel=panel.cor, 
+      diag.panel=panel.hist, cex.labels = 0.9)
+
+sd<-c()
+
+for(s in 2:12){
+  sd[s]<-sd(data_hogares[,s])
+}
+sd<-sd[-1]
+plot(sd)
+
+```
+###¿Existen servicios/bienes que presentan datos atípicos? Justifique la respuesta y en caso de ser afirmativa su respuesta mencionar todos los servicios/bienes donde se presentan.
+
+Podemos observar que si se encuentran valores atipicos en los bienes: 
+
+Television- 0.8429,0.8006, 0.8266, 0.8561
+Telefonia- 0.7491,0.7404,0.7229
+Estufa de gas o electrica- 0.6863, 0.61
+Refrigerador-0.62
+```{r}
+out<-boxplot(data_hogares[,2:12],outline=TRUE,col=4)
+```
+
+###¿Es posible identificar Estados con comportamiento similar en los servicios/bienes medidos a los hogares dentro de su territorio? Justifique la respuesta y en caso de ser afirmativa mencione un ejemplo.
+
+Podemos observar que Oaxaca y Chiapas tienen comportamientos similares. Tambien CDMX y Jalisco
+```{r}
+stars(scale(data_hogares[,2:12]), key.loc = c(11, 2), radius = TRUE, 
+      labels = data_hogares$`Entidad federativa`, flip.labels = FALSE, len = 0.9)
+```
+###¿Considera que los datos utilizados para el presente estudio son adecuados para realizar un Análisis de Componentes Principales? Justifique su respuesta con evidencia estadística verificable.
+
+Podemos ver en el la primera tabla exploratoria que las variables se encuentran alta y positivamente relacionadas así como disperción en la distribucion de las variables estudiadas.
+
+```{r}
+library(psych)
+KMO(data_hogares[,2:12])
+# Contraste de normalidad Shapiro-Wilk para cada variable en cada grupo
+for (k in 2:12) {
+  j0 <- names(data_hogares[k])
+   x <- data_hogares[, j0]
+    x.test <- shapiro.test(as.matrix(x))
+    x.test$data.name <- paste(j0) 
+    print(x.test)
+}
+```
+Podemos ver que la mayoria de las variables están por encima de 0.7 lo cual nos indica que nuestra base de datos es adecuada para un analisis por factor. Aunque no todas las variables muestran un distribución normal, aplicaremos ACP para reducir nuestras variables. 
+
+###Utilizando la matriz de correlación, determine el número de componentes a ser considerados en el estudio si se empleara cada uno de los métodos enlistados: (justificar cada una de sus respuestas con evidencia verificable)
+
+```{r}
+corre<-cor(data_hogares[,2:12])
+hogares_pca <- prcomp(data_hogares[,2:12], center = TRUE, scale = TRUE)
+vectores<-round(hogares_pca$rotation,4)
+
+```
+
+####a. El porcentaje de Variación Total Acumulada (al menos el 75%)
+```{r}
+summary(hogares_pca)
+```
+
+Si tomaramos como criterio la proporcion de varianza acumulada, podriamos tomar unicamene los primeros dos componenetes principales ya que estos representan el 78% de la variación lo cual simplificaria bastante la dimension
+####b. El criterio de Kaiser
+```{r}
+round(hogares_pca$sdev^2,3)
+```
+El criterio de Kaiser propone considerar los componenetes cuyos valores propios sean mayores a 1, lo cual significaría para este promebla tomar los componentes 1 y 2.
+
+####c. El método gráfico
+
+```{r}
+# Gráfico de sedimentación (scree plot)
+plot(hogares_pca$sdev^2, main = "Gráfico de sedimentación", ylab = "Valor 
+     propio", xlab = "Componente Principal", type = "b", col = "royalblue4")
+abline(h = 1, lty = 2, col = "red")
+
+# Gráfico de variación acumulada
+pve <- hogares_pca$sdev^2/sum(hogares_pca$sdev^2)
+plot(cumsum(pve), xlab = "Componente Principal", ylab = "Porción acumulada       de la varianza explicada", ylim = c(0,1), type = 'b', 
+     col = "royalblue4")
+abline(h = 0.80, lty = 2, col = "red")
+```
+
+De forma similar tomando en cuenta el metodo gráfico para determinar el número de componentes principales a considerar, podemos observar en las graficas anteriores que serían dado el punto de infleccion hasta el componente 2.
+
+Siendo para este caso consistentes los tres metodos en la determinación.
+
+###El equipo decide trabajar con los dos primeros componentes. Realice la gráfica Bi-plot para estos dos componentes e interprete lo que observa en ella.
+
+```{r}
+Z1 <- round(scale(as.matrix(data_hogares[,2:12])) %*% hogares_pca$rotation[,1],4)
+Z2 <- round(scale(as.matrix(data_hogares[,2:12])) %*% hogares_pca$rotation[,2],4)
+scores <- cbind(Z1, Z2)
+biplot(hogares_pca, choices = 1:2, col = c("gray73","sienna3"), scale = 0,
+       xlim = c(-6.6,4), ylim = c(-2,2.6),expand=1)
+abline(h = 0, v = 0, col = "red", lty = 5)
+
+```
+
+####a. ¿Existen variables que puedan considerarse contradictorias (opuestas)? Si la respuesta es afirmativa, mencionar al menos un ejemplo.
+
+Dado que todas la variables se encuentran apuntando a la izquierda, no existen variables contradictorias. Con correlación negativa podrian ser Aire acondicionado y Radio pues el angulo entre estas es el mayor.
+
+####b. ¿Existen variables que pueda asumirse que no tienen relación entre ellas? Si la respuesta es afirmativa, mencionar al menos un ejemplo.
+Si, aquellas que sean perpendiculares la una de la otra. Un ejemplo es internet y horno de microondas
+
+####c. ¿Existen variables con fuerte relación entre ellas? Si la respuesta es afirmativa, mencionar al menos un ejemplo.
+Si, aquellas que se encuentran muy unidas en el centro.Por ejemplo, refrigerador y lavadora.
+
+####d. ¿Cuál es el servicio/bien que, de acuerdo con lo reflejado en el biplot, tiene una mayor relevancia o incidencia en los resultados que se despliegan en el gráfico?
+
+Radio pues es el vector más largo
+
+```{r}
+vectores[,1:2]
+plot(x = scores[,1], y = scores[,2], pch = 19, col ="deepskyblue3",
+     cex = 1.2, xlab = "PC1", ylab = "PC2", xlim = c(-6.6,6.4), ylim = c(-2,2.6))
+abline(h = 0, v = 0, lty = 5, col = "red")
+text(x = scores[,1], y = scores[,2], labels= data_hogares$`Entidad federativa`, col = "gray63",
+     cex = 0.8, pos = 3)
+```
+
+###A partir de la información arrojada después de aplicar el método de ACP, responda y justifique basado en la evidencia ofrecida por el análisis realizado, las siguientes preguntas:
+####a. ¿Se comprueba que Nuevo León, CDMX y Jalisco presentan un comportamiento similar en las variables medidas? ¿Por qué?
+Segun  lo observado en el analisis, indicaría que CDMX y Jalisco si se presentan un compartmiento similar. Nuevo Leon es similar por el lado del PC1 pero distinto en PC2 a las otras dos entidades.
+
+####b. ¿Lo mismo ocurre con Chiapas, Guerrero y Oaxaca? ¿Por qué?
+Sí, Podemos observar que estás tres entidades federativas presentan un compartamiento similar muy cargado hacia el eje negativo de PC1
+
+####c. ¿El desempeño general del Estado de Aguascalientes es similar a la de otros estados? En caso de ser afirmativo mencione al menos uno.
+Parece muy similar al de CDMX, Jalisco y Zacatecas.
+
+####d. Considerando la hipótesis de que un hogar con mayores ingresos contará con la mayoría de los bienes y servicios enlistados,
+####i. ¿cuál es el Estado que cuenta con los hogares de mayores ingresos?
+Sonora
+####ii. ¿cuál es el Estado que tiene los hogares con ingresos más bajo?
+Chiapas
+
+

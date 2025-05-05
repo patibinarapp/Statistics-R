@@ -1,0 +1,79 @@
+---
+title: "Act_1B"
+author: "Ana P. Mayoral"
+date: "16 de noviembre de 2023"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+###Imagine que trabaja como analista para la Secretaria de Agricultura y está encargado de hacer un estudio de las características que tienen los vinos blancos que se producen en el Bajío para planear acciones encaminadas por un lado a promocionar este producto y por otro conocer las principales características que tienen. Para cumplir lo anterior tiene una base de datos histórica de varias muestras tomadas a los vinos blancos que se producen en la región. Basado en los datos de esta muestra y aplicando lo visto en esta Unidad, de respuesta a los planteamientos que se presentan a continuación:
+
+####RESUMEN
+
+A continuación se presenta un los minimos, maximos, media y mediana para cada una de las variables estudiadas. Es importante notar que no todas las variables se encentras expresadas en la misma escala por lo que no son necesariamente directamente comparables. Se recomienda una revision particular a los valores maximos de las variables Azucar y Dioxido de azufre pues podrian ser outliers que afecten el estudio. De la misma forma señalamos que la media del pH (3.188) se encuentra dentro del rango deseado por los expertos que va desde 3.10 y 3.90.
+
+```{r cars}
+library(readxl)
+Vinos<-read_excel("C:/Users/Dicssa/Documents/EMED CIMAT/Modulo 4 Metodos multvariados/Calidad_Vino_Bco.xlsx")
+data_vinos<-data.frame(Vinos)
+summary(data_vinos)
+```
+####A)
+Dos características que distingue a tiene este tipo de bebidas es la acidez y el contenido de alcohol. ¿cuáles son los valores promedios para las mediciones de acidez permanente,acidez volátil y alcohol?.
+
+```{r}
+medias<-colMeans(data_vinos)
+medias[1:2]
+medias[11]
+```
+####B)
+Podemos obsevar que las dos características medidas a la muestra de vino blanco que presentan los valores más altos de desviaciones estándar son el nivel de dióxido de azufre y su total, así como los gramos de azucar residual.
+
+```{r}
+varian<-var(data_vinos)
+as.matrix(sqrt(diag(varian)))
+```
+####C)
+Ahora es importante conocer la correlación que existe entre las variables estudiadas para conocer como se comportan unas en respuesta de otras.
+
+```{r}
+corre<-cor(data_vinos)
+orden<-sort(abs(corre),decreasing=TRUE)
+orden[12:17] #Seleccionamos estos pues son los siguientes a los 11 unos de la diagonal
+diag_inf <- function(x, y){
+  usr <- par("usr"); on.exit(par(usr))
+  par(usr = c(0, 1, 0, 1))
+  r <- round(cor(x, y), digits=2)
+  txt <- paste0("R = ", r)
+  cex.cor <- 0.8/strwidth(txt)
+  text(0.5, 0.5, txt,cex=2)
+}
+# Generar el panel en la diagonal superior
+diag_sup<-function(x, y){points(x,y, pch = 19) }
+pairs(data_vinos[,c(4,6,7,8,11)],
+      lower.panel = diag_inf,
+      upper.panel = diag_sup)
+
+```
+Podemos observar que la mayoria de las variables se encuentran correlacionadas en un nivel medio-bajo (|cor|<0.5). Asi mismo destacamos la correlacion entre las varianbles azucar y densidad con un indice de 0.83, el inidice de correlación entre alcohol y densidad de -0.78 y dioxido de azufre con total de dioxido de azufre 0.61.
+
+####D)
+
+Ahora resolveremos para obtener los valores y vectores propios. Calculamos el determinante de la matriz de correlaciones y obtenemos que es diferente de 0 (0.006) por lo que podemos invertir la matriz.
+```{r}
+det(corre)
+valores<-eigen(corre)
+length(valores$values)
+max(valores$values)
+min(valores$values)
+```
+Obtenemos 11 valores propios de los cuales el maximo es 3.22 y el minimo 0.02.
+
+#####Matriz de correlaciones
+```{r}
+print(corre)
+```
+

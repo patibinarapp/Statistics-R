@@ -1,0 +1,78 @@
+---
+title: "Aplicación de matrices en Estadística"
+author: "ESPECIALIDAD EN METODOS ESTADISTICOS A DISTANCIA"
+date: "CIMAT Aguascalientes"
+output: html_notebook
+---
+      
+##### D18MM104  METODOS MULTIVARIADOS I
+  
+
+AUTORES: 
+            
+             Dr. Jorge Raúl Pérez Gallardo
+             M.E. Segio Martín Nava Muñoz
+.  
+
+
+##### **Visualización de la matriz de datos USArrest**
+* * *
+```{r}
+head(USArrests,10)
+```
+.
+
+
+##### **Cálculo del valor promedio de cada variable de USArrest**
+* * *
+```{r}
+colMeans(USArrests)
+```
+.
+
+
+##### **Cálculo de la matriz de varianza-covarianza de USArrest**
+* * *
+```{r}
+var(USArrests)
+```
+.
+
+
+##### **Traza de la matriz de varianza-covarianza**
+* * *
+```{r}
+S = var(USArrests)
+sum(diag(S))
+```
+.
+
+
+##### **Determinante de la matriz de varianza-covarianza**
+* * *
+```{r}
+det(S)
+```
+.
+
+
+##### **Cálculo de los valores y vectores propios**
+* * *
+```{r}
+eigen(S)
+```
+.
+
+
+##### **Estimación de la matriz de correlación**
+* * *
+```{r}
+# A partir de los datos originales
+cor(USArrests)   
+```
+
+```{r}
+# A partir de la matriz de varianza-covarianza
+cov2cor(S)       
+```
+
